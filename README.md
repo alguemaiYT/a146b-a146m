@@ -1,150 +1,87 @@
-# How do I submit patches to Android Common Kernels
+# Samsung Galaxy A14 5G (SM-A146B / SM-A146M) Custom Kernel
+### Android 15 (Vanilla Ice Cream / One UI 7) • Exynos 1330 (s5e8535 / a14x)
 
-1. BEST: Make all of your changes to upstream Linux. If appropriate, backport to the stable releases.
-   These patches will be merged automatically in the corresponding common kernels. If the patch is already
-   in upstream Linux, post a backport of the patch that conforms to the patch requirements below.
-   - Do not send patches upstream that contain only symbol exports. To be considered for upstream Linux,
-additions of `EXPORT_SYMBOL_GPL()` require an in-tree modular driver that uses the symbol -- so include
-the new driver or changes to an existing driver in the same patchset as the export.
-   - When sending patches upstream, the commit message must contain a clear case for why the patch
-is needed and beneficial to the community. Enabling out-of-tree drivers or functionality is not
-not a persuasive case.
+Kernel de alto desempenho baseado no código oficial do **[physwizz/a146b-a146m](https://github.com/physwizz/a146b-a146m)** (Linux 5.15.180), integrando as melhores correções de subssistemas Samsung do **langsdorffkernel**, a suíte de otimizações **Exynos 5.15 do Project-24 (MrPankaj24)** e suporte avançado a **RKSU v3.0.0** com Kprobes desativado.
 
-2. LESS GOOD: Develop your patches out-of-tree (from an upstream Linux point-of-view). Unless these are
-   fixing an Android-specific bug, these are very unlikely to be accepted unless they have been
-   coordinated with kernel-team@android.com. If you want to proceed, post a patch that conforms to the
-   patch requirements below.
+---
 
-# Common Kernel patch requirements
+## 📱 Especificações Técnicas
 
-- All patches must conform to the Linux kernel coding standards and pass `scripts/checkpatch.pl`
-- Patches shall not break gki_defconfig or allmodconfig builds for arm, arm64, x86, x86_64 architectures
-(see  https://source.android.com/setup/build/building-kernels)
-- If the patch is not merged from an upstream branch, the subject must be tagged with the type of patch:
-`UPSTREAM:`, `BACKPORT:`, `FROMGIT:`, `FROMLIST:`, or `ANDROID:`.
-- All patches must have a `Change-Id:` tag (see https://gerrit-review.googlesource.com/Documentation/user-changeid.html)
-- If an Android bug has been assigned, there must be a `Bug:` tag.
-- All patches must have a `Signed-off-by:` tag by the author and the submitter
+| Parâmetro | Valor / Detalhe |
+| :--- | :--- |
+| **Aparelho** | Samsung Galaxy A14 5G (`SM-A146B` / `SM-A146M`) |
+| **Plataforma / SoC** | Samsung Exynos 1330 (`s5e8535` / `a14x`) |
+| **Arquitetura** | ARM64 (2x Cortex-A78 @ 2.4 GHz + 6x Cortex-A55 @ 2.0 GHz) |
+| **GPU** | ARM Mali-G68 MP2 (Valhall) |
+| **Versão Base do Linux** | Linux `5.15.180` |
+| **Base Android** | Android 15 (V / Vanilla Ice Cream / One UI 7) |
+| **Defconfig Principal** | `arch/arm64/configs/s5e8535-a14xxx_defconfig` |
 
-Additional requirements are listed below based on patch type
+---
 
-## Requirements for backports from mainline Linux: `UPSTREAM:`, `BACKPORT:`
+## 🛠️ Toolchain & Ambiente de Build (TC)
 
-- If the patch is a cherry-pick from Linux mainline with no changes at all
-    - tag the patch subject with `UPSTREAM:`.
-    - add upstream commit information with a `(cherry picked from commit ...)` line
-    - Example:
-        - if the upstream commit message is
-```
-        important patch from upstream
+* **Compilador Principal**: AOSP Clang `r487747c` / `r522817` (Clang 17 / 18 / 19 base)
+* **Cross-Compiler Host**: `aarch64-linux-gnu-gcc` & `arm-linux-gnueabi-gcc`
+* **Ferramentas de Linkagem**: LLD (`ld.lld`), `llvm-ar`, `llvm-nm`, `llvm-objcopy`
+* **Otimização de Linkagem (LTO)**: Clang ThinLTO / Full LTO (`ARCH_SUPPORTS_LTO_CLANG_FULL=y`)
+* **Aceleração**: `ccache` com threads paralelas (`make -j12` em VM Spot Google Cloud)
+* **Compatibilidade**: Patches aplicados para prevenir erros de `sizeof-pointer-memaccess` em Clang moderno
 
-        This is the detailed description of the important patch
+---
 
-        Signed-off-by: Fred Jones <fred.jones@foo.org>
-```
->- then Joe Smith would upload the patch for the common kernel as
-```
-        UPSTREAM: important patch from upstream
+## ⚡ Lista Completa de Tweaks, Correções e Patches
 
-        This is the detailed description of the important patch
+### 1. 🛡️ Root, Segurança & Anti-Detecção
+* **RKSU v3.0.0 (Legacy Hooks v2)**: Root nativo de alta estabilidade com Syscall Hook.
+* **Kprobes Desativado (`CONFIG_KPROBES=n`)**: Desativa instrumentação de kprobes para maior fluidez e menor detecção.
+* **Suporte a SUSFS & Zeromount**: Primitivas no kernel para ocultação profunda de root e módulos, garantindo aprovação em Play Integrity (Device/Strong) e aplicativos bancários.
+* **Samsung FIVE Desativado (`CONFIG_FIVE=n`)**: Remove a verificação de assinatura da Samsung a cada `exec()` e `mmap()`, acelerando o tempo de abertura de aplicativos.
+* **AVB & DM-Verity Desativados**: Permite boot livre com partições modificadas ou GSIs.
 
-        Signed-off-by: Fred Jones <fred.jones@foo.org>
+---
 
-        Bug: 135791357
-        Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
-        (cherry picked from commit c31e73121f4c1ec41143423ac6ce3ce6dafdcec1)
-        Signed-off-by: Joe Smith <joe.smith@foo.org>
-```
+### 2. 🧠 Escalonador & CPU (Samsung EMS / CFS)
+* **Fix de Desalinhamento de Cgroups no EMS**: Adiciona o cgroup `dex2oat` entre `system-background` e `nnapi-hal` em `kernel/sched/ems/`, corrigindo o bug da Samsung que deslocava todas as prioridades de câmera e IA por 1 índice.
+* **Heavy Task Boost no Root Cgroup**: Permite que decodificadores de vídeo por software (VP9/AV1 no `media.swcodec`) recebam boost de CPU automático quando demandados.
+* **Boot no Governor `energy_aware` (EGO)**: Redireciona a escrita inicial de `schedutil` para `energy_aware` com limite de resposta rápido de 4ms, reduzindo o tempo de quadro em ~6.8%.
+* **Calibração de Latência CFS (`fair.c`)**: Restaura `sysctl_sched_latency` para 6ms e `min_granularity` para 0.75ms, eliminando trocas de contexto (*context switches*) excessivas.
+* **Restauração de Controle UFCC**: Reabilita escrita nos nós `min_limit` e `min_limit_wo_boost` em `drivers/soc/samsung/exynos-ufcc.c`.
 
-- If the patch requires any changes from the upstream version, tag the patch with `BACKPORT:`
-instead of `UPSTREAM:`.
-    - use the same tags as `UPSTREAM:`
-    - add comments about the changes under the `(cherry picked from commit ...)` line
-    - Example:
-```
-        BACKPORT: important patch from upstream
+---
 
-        This is the detailed description of the important patch
+### 3. 💾 Gerenciamento de Memória & ZRAM
+* **ZRAM Sem Readahead (`ra_pages = 0`)**: Elimina leitura antecipada na ZRAM, impedindo que o processador desperdice ciclos descompactando páginas vizinhas na RAM.
+* **Limites de Dirty Writeback Otimizados (40/10)**: Reduz `dirty_background_ratio` para 10% e `vm_dirty_ratio` para 40% em `mm/page-writeback.c`, eliminando engasgos causados por acúmulo de dados na memória flash.
+* **Readahead MMC Reduzido para 256KB**: Reduz a sobrecarga do cache de páginas no eMMC/UFS, poupando memória preciosa em aparelhos de 4GB/6GB RAM.
+* **Swappiness Ajustado para 130**: Favorece a compressão de páginas anônimas ociosas para a ZRAM antes de descartar caches de arquivos da interface, melhorando a retenção de apps.
+* **Remoção de KASAN, MTE e KFENCE**: Libera ~7.4MB de RAM gastos com tabelas de páginas e restaura o mapeamento em blocos contíguos de 2MB no MMU ARM64 (`rodata=on`), acelerando os acertos de TLB.
+* **Nós de Sysfs `am_app_launch` Expostos**: Permite que serviços de usuário ativem os perfis de memória `sec_mm` na abertura de apps.
 
-        Signed-off-by: Fred Jones <fred.jones@foo.org>
+---
 
-        Bug: 135791357
-        Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
-        (cherry picked from commit c31e73121f4c1ec41143423ac6ce3ce6dafdcec1)
-        [joe: Resolved minor conflict in drivers/foo/bar.c ]
-        Signed-off-by: Joe Smith <joe.smith@foo.org>
-```
+### 4. 🔋 Hardware & Bateria (Exynos 1330)
+* **Bypass Charging Real para o Chip SM5714 (`Bypass_charging_fix.patch`)**: Habilita a alimentação direta pela fonte no controlador Silicon Mitus SM5714. Permite jogar ou executar cargas pesadas conectado ao carregador sem aquecer a bateria.
+* **Desativação de CRC no MMC (`use_spi_crc = 0`)**: Remove o cálculo de redundância de CRC em transferências do armazenamento interno e cartão MicroSD, melhorando a taxa de transferência de I/O.
+* **Assembly Memcmp Otimizado para Exynos (`optimise_memcmp_exynos.patch`)**: Rotina de comparação de memória ultraveloz em código de máquina ARM64 para chips Samsung.
+* **Alinhamento de Memória (16-byte / 8-byte)**: `clear_page_16bytes_align` e `file_struct_8bytes_align` para maior velocidade de barramento.
+* **Otimização de Partição F2FS (`/data`)**: Redução de contenção e ajuste de blocos mínimos de fsync (`f2fs_reduce_congestion`, `f2fs_enlarge_min_fsync_blocks`).
+* **Supressão de Logspam**: Desativa o envio contínuo de logs inúteis de interrupção de IRQ e sistema no `dmesg`.
 
-## Requirements for other backports: `FROMGIT:`, `FROMLIST:`,
+---
 
-- If the patch has been merged into an upstream maintainer tree, but has not yet
-been merged into Linux mainline
-    - tag the patch subject with `FROMGIT:`
-    - add info on where the patch came from as `(cherry picked from commit <sha1> <repo> <branch>)`. This
-must be a stable maintainer branch (not rebased, so don't use `linux-next` for example).
-    - if changes were required, use `BACKPORT: FROMGIT:`
-    - Example:
-        - if the commit message in the maintainer tree is
-```
-        important patch from upstream
+### 5. 🌐 Rede & Jogos
+* **Google TCP BBRv3 (`tcp_bbr3.c`)**: Algoritmo de controle de congestionamento de rede de 3ª geração do Google backportado para o Linux 5.15, garantindo menor ping e downloads mais rápidos e estáveis no 5G e Wi-Fi.
+* **Primitivas NTSync**: Suporte direto no kernel a primitivas de sincronização NT para jogos emulados de Windows via Winlator, Mobox e Box64.
+* **Módulo Re:Kernel**: Suporte a congelamento otimizado de processos de segundo plano para preservação de bateria.
+* **Elevador de I/O `mq-deadline`**: Menor latência de acesso aos blocos de disco flash em comparação com o escalonador `bfq`.
 
-        This is the detailed description of the important patch
+---
 
-        Signed-off-by: Fred Jones <fred.jones@foo.org>
-```
->- then Joe Smith would upload the patch for the common kernel as
-```
-        FROMGIT: important patch from upstream
+## 📦 Como Instalar
 
-        This is the detailed description of the important patch
-
-        Signed-off-by: Fred Jones <fred.jones@foo.org>
-
-        Bug: 135791357
-        (cherry picked from commit 878a2fd9de10b03d11d2f622250285c7e63deace
-         https://git.kernel.org/pub/scm/linux/kernel/git/foo/bar.git test-branch)
-        Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
-        Signed-off-by: Joe Smith <joe.smith@foo.org>
-```
-
-
-- If the patch has been submitted to LKML, but not accepted into any maintainer tree
-    - tag the patch subject with `FROMLIST:`
-    - add a `Link:` tag with a link to the submittal on lore.kernel.org
-    - add a `Bug:` tag with the Android bug (required for patches not accepted into
-a maintainer tree)
-    - if changes were required, use `BACKPORT: FROMLIST:`
-    - Example:
-```
-        FROMLIST: important patch from upstream
-
-        This is the detailed description of the important patch
-
-        Signed-off-by: Fred Jones <fred.jones@foo.org>
-
-        Bug: 135791357
-        Link: https://lore.kernel.org/lkml/20190619171517.GA17557@someone.com/
-        Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
-        Signed-off-by: Joe Smith <joe.smith@foo.org>
-```
-
-## Requirements for Android-specific patches: `ANDROID:`
-
-- If the patch is fixing a bug to Android-specific code
-    - tag the patch subject with `ANDROID:`
-    - add a `Fixes:` tag that cites the patch with the bug
-    - Example:
-```
-        ANDROID: fix android-specific bug in foobar.c
-
-        This is the detailed description of the important fix
-
-        Fixes: 1234abcd2468 ("foobar: add cool feature")
-        Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
-        Signed-off-by: Joe Smith <joe.smith@foo.org>
-```
-
-- If the patch is a new feature
-    - tag the patch subject with `ANDROID:`
-    - add a `Bug:` tag with the Android bug (required for android-specific features)
-
+1. Baixe o arquivo `.tar` gerado no build.
+2. Coloque o aparelho em **Download Mode** (Volume Up + Volume Down conectados ao cabo USB).
+3. Abra o **Odin3** ou **Brokkr** no PC.
+4. Insira o `.tar` no slot **AP** e clique em **Start**.
+5. *(Alternativa)* Se estiver usando TWRP, instale a imagem diretamente na partição **Boot** (`boot.img`).

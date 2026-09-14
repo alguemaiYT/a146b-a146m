@@ -191,7 +191,7 @@ ifeq ($(CONFIG_SOC_S5E5515),y)
 ccflags-y += -DCONFIG_SCSC_WLAN_DELAYED_SCHED_SCAN
 endif
 
-ccflags-y += -Idrivers/misc/samsung/scsc
+ccflags-y += -I$(srctree)/drivers/misc/samsung/scsc
 # Android Platform version
 ifneq ($(ANDROID_VERSION),)
 ANDROID_PLATFORM_VERSION=$(shell expr $(ANDROID_VERSION) / 10000)

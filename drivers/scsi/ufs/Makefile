@@ -1,3 +1,8 @@
+ifeq ($(TARGET_SOC),)
+ifeq ($(CONFIG_SOC_S5E8535),y)
+TARGET_SOC := s5e8535
+endif
+endif
 # SPDX-License-Identifier: GPL-2.0
 # UFSHCD makefile
 ifdef CONFIG_SCSI_UFS_EXYNOS

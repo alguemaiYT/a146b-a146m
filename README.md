@@ -1,87 +1,132 @@
-# Samsung Galaxy A14 5G (SM-A146B / SM-A146M) Custom Kernel
-### Android 15 (Vanilla Ice Cream / One UI 7) • Exynos 1330 (s5e8535 / a14x)
+# Samsung Galaxy A14 5G (SM-A146B) Custom Kernel
+### Exynos 1330 (`s5e8535` / `a14x`) • Android 15 (Linux 5.15) • Configuration: **Balanced V1**
 
-Kernel de alto desempenho baseado no código oficial do **[physwizz/a146b-a146m](https://github.com/physwizz/a146b-a146m)** (Linux 5.15.180), integrando as melhores correções de subssistemas Samsung do **langsdorffkernel**, a suíte de otimizações **Exynos 5.15 do Project-24 (MrPankaj24)** e suporte avançado a **RKSU v3.0.0** com Kprobes desativado.
+Kernel de alta fidelidade e estabilidade para o **Galaxy A14 5G (`SM-A146B`)**, baseado na árvore oficial do **[physwizz/a146b-a146m](https://github.com/physwizz/a146b-a146m)**. 
+
+Este projeto adota uma engenharia orientada à plataforma real do dispositivo: **armazenamento UFS interno (`fstab.s5e8535.ufs.ab`)**, compatibilidade estrita de ABI com módulos vendor, **SELinux Enforcing**, mitigação de overhead de depuração da Samsung e aceleração nativa para emulação e jogos (com **NTSync** e **BBRv3**), eliminando placebos e modificações inseguras.
 
 ---
 
-## 📱 Especificações Técnicas
+## 📱 Especificações da Plataforma
 
-| Parâmetro | Valor / Detalhe |
+| Parâmetro | Detalhes Técnicos |
 | :--- | :--- |
-| **Aparelho** | Samsung Galaxy A14 5G (`SM-A146B` / `SM-A146M`) |
-| **Plataforma / SoC** | Samsung Exynos 1330 (`s5e8535` / `a14x`) |
-| **Arquitetura** | ARM64 (2x Cortex-A78 @ 2.4 GHz + 6x Cortex-A55 @ 2.0 GHz) |
-| **GPU** | ARM Mali-G68 MP2 (Valhall) |
-| **Versão Base do Linux** | Linux `5.15.180` |
-| **Base Android** | Android 15 (V / Vanilla Ice Cream / One UI 7) |
-| **Defconfig Principal** | `arch/arm64/configs/s5e8535-a14xxx_defconfig` |
+| **Dispositivo Alvo** | Samsung Galaxy A14 5G (`SM-A146B` / `SM-A146M`) |
+| **SoC / Plataforma** | Samsung Exynos 1330 (`s5e8535` / `TARGET_SOC=s5e8535`) |
+| **Topologia de CPU** | 8 núcleos (2x Cortex-A78 @ 2.4 GHz + 6x Cortex-A55 @ 2.0 GHz) |
+| **GPU** | ARM Mali-G68 MP2 (Arquitetura Valhall) |
+| **Armazenamento** | **UFS 2.2** (Não eMMC legado) |
+| **Kernel Base** | Linux `5.15.180` (Android 15 / One UI 7) |
+| **Defconfig de Base** | `erd8535_t_gki_defconfig` / `s5e8535-a14xxx_defconfig` |
+| **Árvore Upstream** | `physwizz/a146b-a146m` (branch `main`) |
 
 ---
 
-## 🛠️ Toolchain & Ambiente de Build (TC)
+## 🏗️ Configuração “Balanced V1”
 
-* **Compilador Principal**: AOSP Clang `r487747c` / `r522817` (Clang 17 / 18 / 19 base)
-* **Cross-Compiler Host**: `aarch64-linux-gnu-gcc` & `arm-linux-gnueabi-gcc`
-* **Ferramentas de Linkagem**: LLD (`ld.lld`), `llvm-ar`, `llvm-nm`, `llvm-objcopy`
-* **Otimização de Linkagem (LTO)**: Clang ThinLTO / Full LTO (`ARCH_SUPPORTS_LTO_CLANG_FULL=y`)
-* **Aceleração**: `ccache` com threads paralelas (`make -j12` em VM Spot Google Cloud)
-* **Compatibilidade**: Patches aplicados para prevenir erros de `sizeof-pointer-memaccess` em Clang moderno
+A configuração **Balanced V1** foi desenhada para extrair máxima fluidez, retenção de multitarefa e estabilidade térmica sem comprometer a durabilidade dos dados ou a integridade do hardware.
+
+```
+BALANCED V1 ARCHITECTURE
+├── BASE & ABI
+│   ├── physwizz A146B base funcional
+│   ├── DTB/DTBO original s5e8535 mantido
+│   ├── Módulos vendor originais preservados (sem quebra de ABI)
+│   ├── SELinux Enforcing ativo
+│   └── RKSU v3.0.0 (Legacy Hooks v2) + SUSFS compatível
+│
+├── MEMÓRIA & ZRAM
+│   ├── ZRAM ativa com algoritmo LZ4 (prioridade performance)
+│   ├── ra_pages = 0 (fim da descompressão inútil de páginas vizinhas)
+│   ├── vm.swappiness = 130 (retenção agressiva de pagecache da UI)
+│   ├── vm.page-cluster = 0 (otimizado para operações por página na ZRAM)
+│   ├── dirty_background_ratio = 10 (despejo suave de escrita)
+│   └── dirty_ratio = 40 (prevenção de congelamentos de I/O)
+│
+├── ESCALONADOR & CPU
+│   ├── Samsung EMS (Energy-aware Multi-processing Scheduler) original
+│   ├── EAS / EGO governor preservado e sintonizado para o s5e8535
+│   ├── Port do cgroup dex2oat (alinhamento de prioridades de câmera e IA)
+│   ├── Port de Heavy-Task Boost (boost responsivo em saturação)
+│   └── Port de Boost para media.swcodec (decodificação de software VP9/AV1)
+│
+├── ARMAZENAMENTO & UFS
+│   ├── Driver UFS stock preservado
+│   ├── Readahead UFS calibrado em 256 KB
+│   ├── Elevador I/O mq-deadline (baixa latência em flash)
+│   └── F2FS congestion tuning conservador (sem hacks destrutivos de fsync)
+│
+├── REDE & CONECTIVIDADE
+│   ├── Google TCP BBRv3 (backport oficial 5.15)
+│   ├── TCP Cubic mantido como fallback
+│   ├── Escalonamento fq / pacing ativo
+│   └── TCP Fast Open habilitado
+│
+├── GAMING, EMULAÇÃO & VIRTUALIZAÇÃO (Winlator / Mobox)
+│   ├── NTSync nativo (primitivas de sincronização NT no kernel)
+│   ├── Futex / Futex2 preservados
+│   ├── Namespaces completos, cgroups, OverlayFS
+│   ├── Drivers virtuais de rede: TUN/TAP e VETH
+│   └── Suporte a sistemas de arquivos NTFS3 e exFAT nativos
+│
+├── BATERIA & TÉRMICA
+│   ├── Driver térmico e SSRM da Samsung intactos (segurança absoluta)
+│   ├── DVFS da GPU Mali-G68 preservado
+│   ├── Proteções de carga e saúde da bateria mantidas
+│   └── Bypass Charging no chip SM5714 (alimentação direta sem aquecimento)
+│
+└── RELEASE CLEANUP (Sem Bloat de Depuração)
+    ├── KASAN = n
+    ├── KFENCE = n
+    ├── LOCKDEP = n
+    ├── DEBUG_PAGEALLOC = n
+    ├── Redução de SEC_DEBUG e ACPM logspam
+    └── Supressão de IRQ logspam contínuo
+```
 
 ---
 
-## ⚡ Lista Completa de Tweaks, Correções e Patches
+## 🛠️ Toolchain & Especificações de Compilação
 
-### 1. 🛡️ Root, Segurança & Anti-Detecção
-* **RKSU v3.0.0 (Legacy Hooks v2)**: Root nativo de alta estabilidade com Syscall Hook.
-* **Kprobes Desativado (`CONFIG_KPROBES=n`)**: Desativa instrumentação de kprobes para maior fluidez e menor detecção.
-* **Suporte a SUSFS & Zeromount**: Primitivas no kernel para ocultação profunda de root e módulos, garantindo aprovação em Play Integrity (Device/Strong) e aplicativos bancários.
-* **Samsung FIVE Desativado (`CONFIG_FIVE=n`)**: Remove a verificação de assinatura da Samsung a cada `exec()` e `mmap()`, acelerando o tempo de abertura de aplicativos.
-* **AVB & DM-Verity Desativados**: Permite boot livre com partições modificadas ou GSIs.
-
----
-
-### 2. 🧠 Escalonador & CPU (Samsung EMS / CFS)
-* **Fix de Desalinhamento de Cgroups no EMS**: Adiciona o cgroup `dex2oat` entre `system-background` e `nnapi-hal` em `kernel/sched/ems/`, corrigindo o bug da Samsung que deslocava todas as prioridades de câmera e IA por 1 índice.
-* **Heavy Task Boost no Root Cgroup**: Permite que decodificadores de vídeo por software (VP9/AV1 no `media.swcodec`) recebam boost de CPU automático quando demandados.
-* **Boot no Governor `energy_aware` (EGO)**: Redireciona a escrita inicial de `schedutil` para `energy_aware` com limite de resposta rápido de 4ms, reduzindo o tempo de quadro em ~6.8%.
-* **Calibração de Latência CFS (`fair.c`)**: Restaura `sysctl_sched_latency` para 6ms e `min_granularity` para 0.75ms, eliminando trocas de contexto (*context switches*) excessivas.
-* **Restauração de Controle UFCC**: Reabilita escrita nos nós `min_limit` e `min_limit_wo_boost` em `drivers/soc/samsung/exynos-ufcc.c`.
+* **Compilador**: Google AOSP Clang (`r487747c` / `r522817` – base Clang 17-19)
+* **Cross-Tools Host**: `aarch64-linux-gnu-gcc` (para assembly/host fallback)
+* **Linker**: LLD (`ld.lld`) com suporte a **ThinLTO / Full LTO**
+* **Nível de Otimização**: `-O2` (deixando o compilador otimizar vetorizações de forma determinística)
+* **Aceleração**: `ccache` com compilação paralela de 12 núcleos (`make -j12`) em VM Spot Google Cloud
+* **Correções Clang**: Patch de compatibilidade `sizeof-pointer-memaccess` para Clang 20+
 
 ---
 
-### 3. 💾 Gerenciamento de Memória & ZRAM
-* **ZRAM Sem Readahead (`ra_pages = 0`)**: Elimina leitura antecipada na ZRAM, impedindo que o processador desperdice ciclos descompactando páginas vizinhas na RAM.
-* **Limites de Dirty Writeback Otimizados (40/10)**: Reduz `dirty_background_ratio` para 10% e `vm_dirty_ratio` para 40% em `mm/page-writeback.c`, eliminando engasgos causados por acúmulo de dados na memória flash.
-* **Readahead MMC Reduzido para 256KB**: Reduz a sobrecarga do cache de páginas no eMMC/UFS, poupando memória preciosa em aparelhos de 4GB/6GB RAM.
-* **Swappiness Ajustado para 130**: Favorece a compressão de páginas anônimas ociosas para a ZRAM antes de descartar caches de arquivos da interface, melhorando a retenção de apps.
-* **Remoção de KASAN, MTE e KFENCE**: Libera ~7.4MB de RAM gastos com tabelas de páginas e restaura o mapeamento em blocos contíguos de 2MB no MMU ARM64 (`rodata=on`), acelerando os acertos de TLB.
-* **Nós de Sysfs `am_app_launch` Expostos**: Permite que serviços de usuário ativem os perfis de memória `sec_mm` na abertura de apps.
+## 🚫 O que foi Intencionalmente Excluído (e por quê)
+
+Para garantir estabilidade profissional, recusamos modificações inseguras ou placebos:
+
+1. **`use_spi_crc = 0` / MMC hacks**:
+   * O A146B utiliza barramento **UFS**, não eMMC legado por barramento SPI de 2014. Modificar registros de CRC de MMC não gera nenhum ganho de velocidade no chip UFS interno.
+2. **Alignment Hacks 8B/16B Não Verificados**:
+   * Forçar alinhamento artificial sem suporte estrutural nas chamadas do driver pode corromper estruturas em 64 bits.
+3. **`-O3`, `-Ofast` e Polly**:
+   * Aumentam o tamanho binário do kernel (*code bloat*), geram falhas sutis em pontes de assembly ARM64 e degradam acertos de cache L1/L2.
+4. **Overclock e Modificação de Trip Points Térmicos**:
+   * O Exynos 1330 opera em chassi sem câmara de vapor. Desativar throttling ou elevar limites térmicos acelera a degradação da bateria e causa desligamentos súbitos por PMIC.
+5. **Hacks de Desativação de `fsync`**:
+   * Quebram a durabilidade ACID do SQLite e F2FS, causando perda massiva de dados e corrupção do sistema em reinicializações inesperadas.
+6. **Transplante Cego de Drivers do Exynos 850**:
+   * Código de TrustZone e DVFS do Mali Bifrost feitos para o chip antigo de 8 núcleos A55 não se aplicam à arquitetura do Exynos 1330 (Cortex-A78 + Mali Valhall).
 
 ---
 
-### 4. 🔋 Hardware & Bateria (Exynos 1330)
-* **Bypass Charging Real para o Chip SM5714 (`Bypass_charging_fix.patch`)**: Habilita a alimentação direta pela fonte no controlador Silicon Mitus SM5714. Permite jogar ou executar cargas pesadas conectado ao carregador sem aquecer a bateria.
-* **Desativação de CRC no MMC (`use_spi_crc = 0`)**: Remove o cálculo de redundância de CRC em transferências do armazenamento interno e cartão MicroSD, melhorando a taxa de transferência de I/O.
-* **Assembly Memcmp Otimizado para Exynos (`optimise_memcmp_exynos.patch`)**: Rotina de comparação de memória ultraveloz em código de máquina ARM64 para chips Samsung.
-* **Alinhamento de Memória (16-byte / 8-byte)**: `clear_page_16bytes_align` e `file_struct_8bytes_align` para maior velocidade de barramento.
-* **Otimização de Partição F2FS (`/data`)**: Redução de contenção e ajuste de blocos mínimos de fsync (`f2fs_reduce_congestion`, `f2fs_enlarge_min_fsync_blocks`).
-* **Supressão de Logspam**: Desativa o envio contínuo de logs inúteis de interrupção de IRQ e sistema no `dmesg`.
+## 🗺️ Roadmap de Versões
+
+* [x] **Balanced V1**: Base ultraestável, UFS tuning, NTSync, BBRv3, ZRAM LZ4 e correção de cgroups EMS.
+* [ ] **Gaming V2**: Sintonização fina de DVFS para a GPU Mali-G68 e pisos mínimos de clock do EMS em sessões de jogo.
+* [ ] **Battery V2**: Integração conservadora do Re:Kernel freezer e políticas de downclock em repouso profundo.
 
 ---
 
-### 5. 🌐 Rede & Jogos
-* **Google TCP BBRv3 (`tcp_bbr3.c`)**: Algoritmo de controle de congestionamento de rede de 3ª geração do Google backportado para o Linux 5.15, garantindo menor ping e downloads mais rápidos e estáveis no 5G e Wi-Fi.
-* **Primitivas NTSync**: Suporte direto no kernel a primitivas de sincronização NT para jogos emulados de Windows via Winlator, Mobox e Box64.
-* **Módulo Re:Kernel**: Suporte a congelamento otimizado de processos de segundo plano para preservação de bateria.
-* **Elevador de I/O `mq-deadline`**: Menor latência de acesso aos blocos de disco flash em comparação com o escalonador `bfq`.
+## 📥 Procedimento de Instalação
 
----
-
-## 📦 Como Instalar
-
-1. Baixe o arquivo `.tar` gerado no build.
-2. Coloque o aparelho em **Download Mode** (Volume Up + Volume Down conectados ao cabo USB).
-3. Abra o **Odin3** ou **Brokkr** no PC.
-4. Insira o `.tar` no slot **AP** e clique em **Start**.
-5. *(Alternativa)* Se estiver usando TWRP, instale a imagem diretamente na partição **Boot** (`boot.img`).
+1. Obtenha o arquivo compilado (`.tar` para Odin ou `boot.img` para TWRP).
+2. Conecte o aparelho em **Download Mode** (Volume Up + Volume Down conectados ao cabo USB).
+3. No **Odin3** ou **Brokkr**, insira o `.tar` no slot **AP** e execute o flash.
+4. *(Ou via TWRP)*: Instale a imagem diretamente na partição **Boot**.

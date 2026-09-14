@@ -50,6 +50,7 @@ exynos-drm-y := exynos_drm_drv.o  exynos_drm_fb.o exynos_drm_format.o		\
 exynos-drm-$(CONFIG_DRM_MCD_COMMON) += mcd_cal/mcd_drm_dsim.o mcd_cal/mcd_drm_helper.o
 
 exynos-drm-$(CONFIG_DRM_FBDEV_EMULATION) += exynos_drm_fbdev.o
+exynos-drm-$(CONFIG_KLAPSE_CTRL) += exynos_drm_klapse.o
 exynos-drm-$(CONFIG_DRM_SAMSUNG_DECON)	+= exynos_drm_decon.o
 exynos-drm-$(CONFIG_DRM_SAMSUNG_DPP)	+= exynos_drm_dpp.o
 exynos-drm-$(CONFIG_DRM_SAMSUNG_DSI)	+= exynos_drm_dsim.o

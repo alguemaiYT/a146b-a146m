@@ -638,6 +638,8 @@ static struct elevator_type *elevator_get_default(struct request_queue *q)
 			!blk_mq_is_sbitmap_shared(q->tag_set->flags))
 		return NULL;
 
+	e = elevator_get(q, "ssg", false);
+	if (e) return e;
 	return elevator_get(q, "mq-deadline", false);
 }
 

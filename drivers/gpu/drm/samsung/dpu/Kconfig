@@ -133,6 +133,30 @@ config EXYNOS_UEVENT_RECOVERY_SOLUTION
 	help
 	  If this menu is enabled, you can detect panel dead.
 
+config KCAL_CTRL
+	bool "Support KCAL color control (DQE gamma matrix)"
+	depends on DRM_SAMSUNG_DECON
+	default n
+	help
+	  KCAL post-processing interface for Samsung DPU DQE.
+	  Exposes kcal, kcal_enable, kcal_hue, kcal_sat, kcal_val,
+	  kcal_cont, kcal_min and kcal_max nodes next to the other
+	  decon_dqe sysfs attributes. RGB gains, hue, saturation,
+	  brightness and contrast are composed onto the panel's own
+	  gamma matrix at program time.
+
+config KLAPSE_CTRL
+	bool "Support KLapse time-based color shift (requires KCAL)"
+	depends on KCAL_CTRL
+	default n
+	help
+	  KLapse automatically interpolates RGB gains between a daytime
+	  and a nighttime profile based on the clock, feeding the KCAL
+	  DQE pipeline every minute.
+	  See /sys/kernel/klapse/ (enabled, daytime_rgb, nighttime_rgb,
+	  mode_hour_start, mode_hour_end, mode, brightness_factor,
+	  target_rgb).
+
 config EXYNOS_FREQ_HOP
     tristate "Support DPHY PLL Frequency Hopping"
 	depends on DRM_SAMSUNG_DECON
